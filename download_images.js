@@ -13,15 +13,33 @@ const data = JSON.parse(rawData);
 
         const downloadImage = async (imageUrl, filePath, postUrl, spinner) => {
             try {
-                const response = await fetch(`https://lexus.jp${imageUrl}`);
+                // Check if the imageUrl already includes the 'https://lexus.jp' base, if not, prepend it
+                const fullUrl = imageUrl.startsWith('https://lexus.jp') ? imageUrl : `https://lexus.jp${imageUrl}`;
+        
+                // Fetch the image from the fullUrl
+                const response = await fetch(fullUrl);
+        
+                // Check if the fetch was successful
+                if (!response.ok) {
+                    throw new Error(`HTTP status ${response.status}`);
+                }
+        
+                // Convert the response data to a Buffer object
                 const buffer = await response.buffer();
+        
+                // Use the file system module (fs) to write the Buffer to a file
                 fs.writeFileSync(filePath, buffer);
+        
+                // Indicate successful completion
                 return true;
             } catch (error) {
+                // If an error occurs, log it and display a failure message using the spinner
                 spinner.fail(chalk.red(`✘ Error downloading image from ${postUrl}: ${error.message}`));
+        
+                // Return false to indicate failure
                 return false;
             }
-        };
+        };        
 
         const createDirectories = (imageUrl) => {
             const directoryPath = path.join(__dirname, "images", imageUrl.replace(/^\/|\/$/g, ""));
@@ -39,7 +57,11 @@ const data = JSON.parse(rawData);
             for (const field of post.content) {
                 if (field.fieldId === "image") {
                     imagesToDownload.push(field.image.url);
-                } else if (field.fieldId === "carousel") {
+                } 
+                else if (field.fieldId === "banner") {
+                    imagesToDownload.push(field.image.src);
+                }
+                else if (field.fieldId === "carousel") {
                     for (const item of field.items) {
                         imagesToDownload.push(item.image.url);
                     }
