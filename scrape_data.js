@@ -148,7 +148,12 @@ const fs = require("fs").promises;
 					spinner.fail(`Failed to evaluate page content for ${pageURL}: ${evalError}`);
 				}
 			} catch (navError) {
-				spinner.fail(`Navigation failed for ${pageURL}: ${navError}`);
+				data.push({
+					post_url: pageURL,
+					redirectUrl: page.url(), // Adding the redirected URL to the data array
+				});
+				await page.close();
+				spinner.warn(`Navigation failed for ${pageURL} which is redirected to ${page.url()}`);
 			}
 
 			// Save scraped data to a JSON file
@@ -164,7 +169,7 @@ const fs = require("fs").promises;
 			spinner.succeed(`Successfully scraped post ${index + 1}/${totalPages}: ${pageURL}`);
 		}
 		// Create promises for each set of 20 pages and wait for all of them to complete
-		const chunkSize = 100;
+		const chunkSize = 10;
 		for (let i = 0; i < totalPages; i += chunkSize) {
 			const promises = jsonData.ContentsList.slice(i, i + chunkSize).map((content, index) => processPage(content, i + index, totalPages));
 			await Promise.all(promises);
