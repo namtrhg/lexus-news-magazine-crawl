@@ -1,171 +1,139 @@
 const puppeteer = require("puppeteer");
 const fetch = require("node-fetch");
-const fs = require("fs");
+const fs = require("fs").promises;
 
 (async () => {
 	try {
-		// Dynamically import ora
 		const ora = await import("ora");
-		const { default: chalk } = await import("chalk");
-		const spinner = ora.default("Fetching data from Lexus website...").start();
+		const spinner = ora.default("Fetching data from the Lexus website...").start();
 
-		// Fetch data from the API endpoint
 		const response = await fetch("https://lexus.jp/magazine/json/all_contents.json");
+		if (!response.ok) {
+			throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+		}
 		const jsonData = await response.json();
-
-		// Log the number of pages to be scraped
 		const totalPages = jsonData.ContentsList.length;
 		spinner.succeed(`Found ${totalPages} posts to scrape.`);
 
-		// Array to store scraped data
-		let data = [];
+		const data = [];
+		const browser = await puppeteer.launch();
+		const context = browser.defaultBrowserContext();
+		await context.overridePermissions("https://lexus.jp", ["geolocation", "notifications"]); // Override permissions
 
-		for (let i = 0; i < totalPages; i++) {
-			const content = jsonData.ContentsList[i];
-			const browser = await puppeteer.launch();
+		async function processPage(content, index, totalPages) {
 			const page = await browser.newPage();
-
-			// Construct full URL of the page
 			const pageURL = `https://lexus.jp${content.PageURL}`;
+			spinner.start(`Scraping post ${index + 1}/${totalPages}: ${pageURL}`);
 
-			spinner.start(`Scraping post ${i + 1}/${totalPages}: ${pageURL}`);
+			try {
+				await page.goto(pageURL, { waitUntil: "networkidle0", timeout: 80000 });
+				await page.waitForSelector(".article__body", { timeout: 5000 });
 
-			// Navigate to the page
-			await page.goto(pageURL, { timeout: 60000 });
-
-			// Check if all required selectors are present
-			const isAllSelectorsPresent = await page.evaluate(() => {
-				return document.querySelector(".section-slider") && document.querySelector(".article__body") && document.querySelector(".article__head");
-			});
-
-			if (!isAllSelectorsPresent) {
-				spinner.warn("Skipping post due to missing required elements.");
-				await browser.close();
-				continue; // Skip to the next page
-			}
-
-			// Wait for all selectors simultaneously
-			await Promise.all([page.waitForSelector(".section-slider"), page.waitForSelector(".article__body"), page.waitForSelector(".article__head")]);
-
-			// Extract the relative path of the image from the meta tag
-			const featureImagePath = await page.evaluate(() => {
-				const metaElement = document.querySelector('meta[property="og:image"]');
-				if (metaElement) {
-					const imageUrl = metaElement.getAttribute("content");
-					// Remove the domain part from the URL
-					const domainIndex = imageUrl.indexOf("https://lexus.jp");
-					if (domainIndex !== -1) {
-						return imageUrl.substring(domainIndex + "https://lexus.jp".length);
-					} else {
-						return imageUrl; // If the domain part is not found, return the full URL
-					}
+				if (page.url() !== pageURL) {
+					spinner.warn(`Redirected from ${pageURL} to ${page.url()}`);
+					await page.close();
+					return;
 				}
-				return null; // If metaElement is not found
-			});
 
-			let featureImage = null;
+				// Place all evaluations inside a try-catch block
+				try {
+					const profiles = await page.evaluate(() => {
+						const profiles = Array.from(document.querySelectorAll(".article__foot .profile")).map((profile) => ({
+							image: profile.querySelector(".profile__image img")?.srcset || null,
+							name: profile.querySelector(".profile__name")?.innerText.trim() || "Name not found",
+							description: profile.querySelector(".profile__text")?.innerText.trim() || "Description not available",
+						}));
+						return profiles;
+					});
 
-			if (featureImagePath) {
-				// Construct the complete URL using the base URL of the website
-				featureImage = {
-					url: featureImagePath,
-					alt: "", // You can set alt text to an empty string as it's not available in meta tags
-				};
-			}
+					const featureImage = await page.evaluate(() => {
+						const metaElement = document.querySelector('meta[property="og:image"]');
+						return { url: metaElement?.getAttribute("content") || "Image not found", alt: "" };
+					});
 
-			// Extract content from article__text-area, article__image, article__slider, and article__heading inside article__body
-			const title = await page.evaluate(() => {
-				const headElement = document.querySelector(".article__head");
-				const content = headElement.querySelector(".article__lead").innerText.trim();
+					const title = await page.evaluate(() => {
+						const leadText = document.querySelector(".article__head .article__lead");
+						return leadText ? leadText.innerText.trim() : "No title";
+					});
 
-				return {
-					content,
-				};
-			});
+					const contentDetails = await page.evaluate(() => {
+						const articleBody = document.querySelector(".article__body");
+						if (!articleBody) return [];
 
-			// Extract content from the page
-			const fields = await page.evaluate(() => {
-				const fieldsData = [];
-				const articleBody = document.querySelector(".article__body");
-
-				// Get all elements with classes relevant for mapping
-				const relevantElements = Array.from(articleBody.querySelectorAll(".article__image, .article__text-area, .article__heading, .article__slider"));
-
-				// Sort elements based on their appearance in the HTML structure
-				relevantElements.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
-
-				relevantElements.forEach((element) => {
-					const className = element.classList.contains("article__slider") ? "article__slider" : element.className;
-
-					switch (className) {
-						case "article__image": {
-							const imageUrl = element.querySelector("img").getAttribute("data-srcset");
-							const imageHeight = element.querySelector("img").height;
-							const imageWidth = element.querySelector("img").width;
-							fieldsData.push({
-								fieldId: "image",
-								image: {
-									url: imageUrl,
-									height: imageHeight,
-									width: imageWidth,
-								},
-							});
-							break;
-						}
-						case "article__text-area": {
-							fieldsData.push({
-								fieldId: "richText",
-								content: element.innerHTML.trim(),
-							});
-							break;
-						}
-						case "article__heading": {
-							fieldsData.push({
-								fieldId: "heading",
-								content: element.innerText.trim(),
-							});
-							break;
-						}
-						case "article__slider": {
-							const carouselItems = [];
-							element.querySelectorAll(".slick-slide").forEach((item) => {
-								const caption = item.querySelector("[data-caption]").getAttribute("data-caption");
-								const imageUrl = item.querySelector("img").getAttribute("data-srcset");
-								const imageHeight = item.querySelector("img").height;
-								const imageWidth = item.querySelector("img").width;
-								carouselItems.push({
+						const elements = articleBody.querySelectorAll(".article__image, .article__text-area, .article__heading, .article__slider, .article__movie");
+						return Array.from(elements).map((element) => {
+							if (element.classList.contains("article__image")) {
+								const img = element.querySelector("img");
+								return {
+									fieldId: "image",
 									image: {
-										url: imageUrl,
-										height: imageHeight,
-										width: imageWidth,
+										url: img?.getAttribute("data-srcset"),
+										height: img?.naturalHeight,
+										width: img?.naturalWidth,
 									},
-									text: caption,
-								});
-							});
-							fieldsData.push({
-								fieldId: "carousel",
-								items: carouselItems,
-							});
-							break;
-						}
-						default:
-							break;
-					}
-				});
+								};
+							} else if (element.classList.contains("article__text-area")) {
+								return {
+									fieldId: "richText",
+									content: element.innerHTML.trim(),
+								};
+							} else if (element.classList.contains("article__heading")) {
+								return {
+									fieldId: "heading",
+									content: element.innerText.trim(),
+								};
+							} else if (element.classList.contains(".vsw-audio_source")) {
+								return {
+									fieldId: "audio",
+									url: audioElement.src,
+								};
+							} else if (element.classList.contains("article__slider")) {
+								return {
+									fieldId: "carousel",
+									items: Array.from(element.querySelectorAll(".slick-slide img")).map((img) => ({
+										image: {
+											url: img.getAttribute("data-srcset"),
+											height: img.naturalHeight,
+											width: img.naturalWidth,
+										},
+										text: img.alt,
+										isHidden: img.closest(".slick-cloned") !== null, // Check if the img is inside a .slick-cloned element
+									})),
+								};
+							} else if (element.classList.contains("article__movie")) {
+								const video = element.querySelector(".article__iframe");
+								return {
+									fieldId: "video",
+									videoUrl: video?.src,
+									thumbnail: {
+										url: video?.getAttribute("poster"), // Assuming 'poster' attribute holds thumbnail image URL
+										alt: "Video thumbnail",
+									},
+									isHalf: element.classList.contains("size-half"),
+								};
+							}
+						});
+					});
 
-				return fieldsData;
-			});
-
-			data.push({
-				post_url: content.PageURL,
-				featureImage,
-				title,
-				content: [...fields],
-			});
+					data.push({
+						post_url: pageURL,
+						featureImage,
+						title,
+						content: contentDetails,
+						profiles,
+					});
+					await page.close();
+					spinner.succeed(`Successfully scraped post ${index + 1}/${totalPages}: ${pageURL}`);
+				} catch (evalError) {
+					spinner.fail(`Failed to evaluate page content for ${pageURL}: ${evalError}`);
+				}
+			} catch (navError) {
+				spinner.fail(`Navigation failed for ${pageURL}: ${navError}`);
+			}
 
 			// Save scraped data to a JSON file
 			const filePath = "scraped_data.json";
-			fs.writeFile(filePath, JSON.stringify(data, null, 2), (err) => {
+			await fs.writeFile(filePath, JSON.stringify(data, null, 2), (err) => {
 				if (err) {
 					console.error("Error saving scraped data to file:", err);
 				} else {
@@ -173,13 +141,22 @@ const fs = require("fs");
 				}
 			});
 
-			spinner.succeed(`Scraped post ${i + 1}/${totalPages}: ${chalk.green("✔")} ${pageURL}`); // Use chalk for text highlighting
-			await browser.close();
+			spinner.succeed(`Successfully scraped post ${index + 1}/${totalPages}: ${pageURL}`);
+		}
+		// Create promises for each set of 20 pages and wait for all of them to complete
+		const chunkSize = 20;
+		for (let i = 0; i < totalPages; i += chunkSize) {
+			const promises = jsonData.ContentsList.slice(i, i + chunkSize).map((content, index) => processPage(content, i + index, totalPages));
+			await Promise.all(promises);
 		}
 
-		res.json(data);
+		// Save scraped data to a JSON file
+		const filePath = "scraped_data.json";
+		await fs.writeFile(filePath, JSON.stringify(data, null, 2));
+		spinner.succeed(`All posts scraped and data saved to ${filePath}`);
+		await browser.close();
 	} catch (error) {
-		console.error("Error scraping data:", error);
-		res.status(500).send("Error scraping data");
+		console.error("Critical error occurred:", error);
+		process.exit(1);
 	}
 })();
