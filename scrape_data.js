@@ -90,21 +90,23 @@ const fs = require("fs").promises;
 									url: audioElement.src,
 								};
 							} else if (element.classList.contains("article__html")) {
-								return {
-									fieldId: "html",
-									content: element.innerHTML.trim(),
-								};
-							} else if (element.classList.contains("article__moduleBanner")) {
-								const aTag = element.querySelector("a");
-								const imgTag = aTag.querySelector("img");
-								return {
-									fieldId: "banner",
-									url: aTag.href,
-									image: {
-										src: imgTag.src,
-										alt: imgTag.alt,
-									},
-								};
+								if (element.querySelector(".article__moduleBanner")) {
+									const aTag = element.querySelector("a");
+									const imgTag = aTag.querySelector("img");
+									return {
+										fieldId: "banner",
+										url: aTag.href,
+										image: {
+											src: imgTag.src,
+											alt: imgTag.alt,
+										},
+									};
+								} else {
+									return {
+										fieldId: "html",
+										content: element.innerHTML.trim(),
+									};
+								}
 							} else if (element.classList.contains("article__slider")) {
 								return {
 									fieldId: "carousel",
