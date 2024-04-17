@@ -60,7 +60,9 @@ const fs = require("fs").promises;
 						const articleBody = document.querySelector(".article__body");
 						if (!articleBody) return [];
 
-						const elements = articleBody.querySelectorAll(".article__image, .article__text-area, .article__heading, .article__slider, .article__movie");
+						const elements = articleBody.querySelectorAll(
+							".article__image, .article__text-area, .article__heading, .article__slider, .article__movie, .article__html, .article__moduleBanner",
+						);
 						return Array.from(elements).map((element) => {
 							if (element.classList.contains("article__image")) {
 								const img = element.querySelector("img");
@@ -82,10 +84,26 @@ const fs = require("fs").promises;
 									fieldId: "heading",
 									content: element.innerText.trim(),
 								};
-							} else if (element.classList.contains(".vsw-audio_source")) {
+							} else if (element.classList.contains("vsw-audio_source")) {
 								return {
 									fieldId: "audio",
 									url: audioElement.src,
+								};
+							} else if (element.classList.contains("article__html")) {
+								return {
+									fieldId: "html",
+									content: element.innerHTML.trim(),
+								};
+							} else if (element.classList.contains("article__moduleBanner")) {
+								const aTag = element.querySelector("a");
+								const imgTag = aTag.querySelector("img");
+								return {
+									fieldId: "banner",
+									url: aTag.href,
+									image: {
+										src: imgTag.src,
+										alt: imgTag.alt,
+									},
 								};
 							} else if (element.classList.contains("article__slider")) {
 								return {
@@ -144,7 +162,7 @@ const fs = require("fs").promises;
 			spinner.succeed(`Successfully scraped post ${index + 1}/${totalPages}: ${pageURL}`);
 		}
 		// Create promises for each set of 20 pages and wait for all of them to complete
-		const chunkSize = 20;
+		const chunkSize = 100;
 		for (let i = 0; i < totalPages; i += chunkSize) {
 			const promises = jsonData.ContentsList.slice(i, i + chunkSize).map((content, index) => processPage(content, i + index, totalPages));
 			await Promise.all(promises);
