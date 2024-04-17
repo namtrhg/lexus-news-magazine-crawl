@@ -169,7 +169,7 @@ const fs = require("fs").promises;
 			spinner.succeed(`Successfully scraped post ${index + 1}/${totalPages}: ${pageURL}`);
 		}
 		// Create promises for each set of 20 pages and wait for all of them to complete
-		const chunkSize = 10;
+		const chunkSize = 100;
 		for (let i = 0; i < totalPages; i += chunkSize) {
 			const promises = jsonData.ContentsList.slice(i, i + chunkSize).map((content, index) => processPage(content, i + index, totalPages));
 			await Promise.all(promises);
