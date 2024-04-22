@@ -66,7 +66,7 @@ const fs = require("fs").promises;
 						const details = Array.from(elements).map((element) => {
 							if (element.classList.contains("article__image")) {
 								const img = element.querySelector("img");
-								const caption = element.querySelector("figcaption.article__caption")?.innerText.trim() || "Caption not available";
+								const caption = element.querySelector("figcaption.article__caption")?.innerText.trim() || "";
 								return {
 									fieldId: "image",
 									image: {
