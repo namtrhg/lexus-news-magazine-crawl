@@ -66,12 +66,15 @@ const fs = require("fs").promises;
 						return Array.from(elements).map((element) => {
 							if (element.classList.contains("article__image")) {
 								const img = element.querySelector("img");
+								const caption = element.querySelector("figcaption.article__caption")?.innerText.trim() || "Caption not available";
 								return {
 									fieldId: "image",
 									image: {
 										url: img?.getAttribute("data-srcset"),
 										height: img?.naturalHeight,
 										width: img?.naturalWidth,
+										alt: img?.alt,
+										caption: caption
 									},
 								};
 							} else if (element.classList.contains("article__text-area")) {
