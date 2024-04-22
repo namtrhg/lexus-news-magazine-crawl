@@ -125,12 +125,13 @@ const fs = require("fs").promises;
 								};
 							} else if (element.classList.contains("article__movie")) {
 								const video = element.querySelector(".article__iframe");
+								const thumbnail = element.querySelector(".article__movie-thumb img");
 								return {
 									fieldId: "video",
 									videoUrl: video?.src,
 									thumbnail: {
-										url: video?.getAttribute("poster"), // Assuming 'poster' attribute holds thumbnail image URL
-										alt: "Video thumbnail",
+										url: thumbnail?.src,
+                    alt: thumbnail?.alt || "Video thumbnail",
 									},
 									isHalf: element.classList.contains("size-half"),
 								};
