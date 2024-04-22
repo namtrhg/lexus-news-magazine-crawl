@@ -63,7 +63,7 @@ const fs = require("fs").promises;
 						const elements = articleBody.querySelectorAll(
 							".article__image, .article__text-area, .article__heading, .article__slider, .article__movie, .article__html, .article__moduleBanner",
 						);
-						return Array.from(elements).map((element) => {
+						const details = Array.from(elements).map((element) => {
 							if (element.classList.contains("article__image")) {
 								const img = element.querySelector("img");
 								const caption = element.querySelector("figcaption.article__caption")?.innerText.trim() || "Caption not available";
@@ -74,7 +74,7 @@ const fs = require("fs").promises;
 										height: img?.naturalHeight,
 										width: img?.naturalWidth,
 										alt: img?.alt,
-										caption: caption
+										caption: caption,
 									},
 								};
 							} else if (element.classList.contains("article__text-area")) {
@@ -125,18 +125,22 @@ const fs = require("fs").promises;
 								};
 							} else if (element.classList.contains("article__movie")) {
 								const video = element.querySelector(".article__iframe");
-								const thumbnail = element.querySelector(".article__movie-thumb img");
+								const thumbnailImage = element.querySelector(".article__movie-thumb img");
 								return {
 									fieldId: "video",
 									videoUrl: video?.src,
 									thumbnail: {
-										url: thumbnail?.src,
-                    alt: thumbnail?.alt || "Video thumbnail",
+										url: thumbnailImage?.src,
+										alt: thumbnailImage?.alt || "",
 									},
 									isHalf: element.classList.contains("size-half"),
 								};
+							} else {
+								console.log("Found unrecognized element:", element);
+								return undefined;
 							}
 						});
+						return details.filter((detail) => detail !== null && detail !== undefined);
 					});
 
 					data.push({
