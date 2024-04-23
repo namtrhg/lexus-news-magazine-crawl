@@ -79,14 +79,15 @@ const fs = require("fs").promises;
 									},
 								};
 							} else if (element.classList.contains("article__text-area")) {
+								const isHtmlParent = element.closest(".article__html") != null;
 								return {
-									fieldId: "richText",
-									content: element.innerHTML.trim(),
+									fieldId: isHtmlParent ? "html" : "richText",
+									content: element.innerHTML,
 								};
 							} else if (element.classList.contains("article__heading")) {
 								return {
 									fieldId: "heading",
-									content: element.innerText.trim(),
+									content: element.innerText,
 								};
 							} else if (element.classList.contains("vsw-audio_source")) {
 								return {
@@ -105,10 +106,11 @@ const fs = require("fs").promises;
 											alt: imgTag.alt,
 										},
 									};
-								} else {
+								}
+								else {
 									return {
 										fieldId: "html",
-										content: element.innerHTML.trim(),
+										content: element.innerHTML,
 									};
 								}
 							} else if (element.classList.contains("article__slider")) {

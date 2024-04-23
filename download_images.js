@@ -1,7 +1,7 @@
 const fetch = require("node-fetch");
 const fs = require("fs");
 const path = require("path");
-
+const cheerio = require("cheerio");
 const rawData = fs.readFileSync("scraped_data.json");
 const data = JSON.parse(rawData);
 
@@ -46,14 +46,28 @@ const data = JSON.parse(rawData);
 
 			for (const field of post.content) {
 				if (field && field.fieldId) {
-					if (field.fieldId === "image") {
-						imagesToDownload.push(field.image.url);
-					} else if (field.fieldId === "banner") {
-						imagesToDownload.push(field.image.src);
-					} else if (field.fieldId === "carousel") {
-						for (const item of field.items) {
-							imagesToDownload.push(item.image.url);
-						}
+					switch (field.fieldId) {
+						case "image":
+							imagesToDownload.push(field.image.url);
+							break;
+						case "banner":
+							imagesToDownload.push(field.image.src);
+							break;
+						case "carousel":
+							field.items.forEach((item) => {
+								imagesToDownload.push(item.image.url);
+							});
+							break;
+						case "html":
+							const $ = cheerio.load(field.content);
+							$("img").each(function () {
+								const imgSrc = $(this).attr("src");
+								if (imgSrc) {
+									const fullImgSrc = imgSrc.startsWith("http") ? imgSrc : `https://lexus.jp${imgSrc}`;
+									imagesToDownload.push(fullImgSrc);
+								}
+							});
+							break;
 					}
 				}
 			}
