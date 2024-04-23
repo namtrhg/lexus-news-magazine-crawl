@@ -16,6 +16,7 @@ const fs = require("fs").promises;
 		spinner.succeed(`Found ${totalPages} posts to scrape.`);
 
 		const data = [];
+		const redirect_data = [];
 		const browser = await puppeteer.launch();
 		const context = browser.defaultBrowserContext();
 		await context.overridePermissions("https://lexus.jp", ["geolocation", "notifications"]); // Override permissions
@@ -158,7 +159,19 @@ const fs = require("fs").promises;
 			} catch (navError) {
 				data.push({
 					post_url: pageURL,
-					redirectUrl: page.url(), // Adding the redirected URL to the data array
+					redirectUrl: page.url(),
+				});
+				redirect_data.push({
+					post_url: pageURL,
+					redirectUrl: page.url(),
+				});
+				const redirect_filePath = "redirect_mapping.json";
+				await fs.writeFile(redirect_filePath, JSON.stringify(redirect_data, null, 2), (err) => {
+					if (err) {
+						console.error("Error saving scraped data to file:", err);
+					} else {
+						console.log("Scraped data saved to file:", filePath);
+					}
 				});
 				await page.close();
 				spinner.warn(`Navigation failed for ${pageURL} which is redirected to ${page.url()}`);
