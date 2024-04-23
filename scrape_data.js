@@ -80,10 +80,12 @@ const fs = require("fs").promises;
 								};
 							} else if (element.classList.contains("article__text-area")) {
 								const isHtmlParent = element.closest(".article__html") != null;
-								return {
-									fieldId: isHtmlParent ? "html" : "richText",
-									content: element.innerHTML,
-								};
+								if (!isHtmlParent)
+									return {
+										fieldId: "richText",
+										content: element.innerHTML,
+									};
+								else return undefined;
 							} else if (element.classList.contains("article__heading")) {
 								return {
 									fieldId: "heading",
@@ -106,8 +108,7 @@ const fs = require("fs").promises;
 											alt: imgTag.alt,
 										},
 									};
-								}
-								else {
+								} else {
 									return {
 										fieldId: "html",
 										content: element.innerHTML,
