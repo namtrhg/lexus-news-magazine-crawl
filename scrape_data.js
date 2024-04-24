@@ -48,7 +48,7 @@ const fs = require("fs").promises;
 					});
 
 					const note = await page.evaluate(() => {
-						const note = document.querySelector(".article__foot .note_text");
+						const note = document.querySelector(".article__foot .note__text");
 						return note ? note.innerText : "";
 					});
 
