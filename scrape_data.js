@@ -41,8 +41,8 @@ const fs = require("fs").promises;
 					const profiles = await page.evaluate(() => {
 						const profiles = Array.from(document.querySelectorAll(".article__foot .profile")).map((profile) => ({
 							image: profile.querySelector(".profile__image img")?.srcset || null,
-							name: profile.querySelector(".profile__name")?.innerText.trim() || "Name not found",
-							description: profile.querySelector(".profile__text")?.innerText.trim() || "Description not available",
+							name: profile.querySelector(".profile__name")?.innerText.trim() || "",
+							description: profile.querySelector(".profile__text")?.innerText.trim() || "",
 						}));
 						return profiles;
 					});
