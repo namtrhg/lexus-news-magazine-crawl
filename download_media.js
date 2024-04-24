@@ -22,9 +22,9 @@ const s3 = new AWS.S3();
 		const { default: chalk } = await import("chalk");
 		let totalSuccessMessages = 0;
 
-		const uploadImageToS3 = async (imageUrl, filePath, postUrl, spinner) => {
+		const uploadImageToS3 = async (mediaUrl, filePath, postUrl, spinner, type) => {
 			try {
-				const fullUrl = imageUrl.startsWith("https://lexus.jp") ? imageUrl : `https://lexus.jp${imageUrl}`;
+				const fullUrl = mediaUrl.startsWith("https://lexus.jp") ? mediaUrl : `https://lexus.jp${mediaUrl}`;
 				const response = await fetch(fullUrl);
 				const buffer = await response.buffer();
 
@@ -33,7 +33,7 @@ const s3 = new AWS.S3();
 					Bucket: process.env.AWS_BUCKET,
 					Key: filePath,
 					Body: buffer,
-					ContentType: "image/jpeg", // You might want to adjust this based on the actual image MIME type
+					ContentType: type,
 				};
 
 				// Uploading files to the bucket
@@ -45,16 +45,15 @@ const s3 = new AWS.S3();
 			}
 		};
 
-		const createDirectories = (imageUrl) => {
-			// Remove the domain part if it exists in the imageUrl
-			const sanitizedImageUrl = imageUrl.replace("https://lexus.jp", "");
-			const directoryPath = path.join("images", sanitizedImageUrl.replace(/^\/|\/$/g, ""));
+		const createDirectories = (mediaUrl) => {
+			const sanitizedMediaUrl = mediaUrl.replace("https://lexus.jp", "");
+			const directoryPath = path.join("media", sanitizedMediaUrl.replace(/^\/|\/$/g, ""));
 			return directoryPath;
 		};
 
 		for (const post of data) {
 			const postUrl = `https://lexus.jp${post.post_url}`;
-			const imagesToDownload = [];
+			const mediaToDownload = [];
 			let successMessages = 0;
 
 			if (!post.content || !Array.isArray(post.content)) {
@@ -63,33 +62,26 @@ const s3 = new AWS.S3();
 			}
 
 			for (const field of post.content) {
-				if (field && field.fieldId) {
+				if (field) {
 					switch (field.fieldId) {
 						case "image":
-							imagesToDownload.push(field.image.url);
+							mediaToDownload.push({ url: field.image.url, type: "image/jpeg" });
 							break;
 						case "banner":
-							imagesToDownload.push(field.image.src);
+							mediaToDownload.push({ url: field.image.src, type: "image/jpeg" });
 							break;
 						case "carousel":
-							field.items.forEach((item) => {
-								imagesToDownload.push(item.image.url);
-							});
+							field.items.forEach((item) => mediaToDownload.push({ url: item.image.url, type: "image/jpeg" }));
 							break;
 						case "html":
 							const $ = cheerio.load(field.content);
 							$("img").each(function () {
-								const imgSrc = $(this).attr("src");
-								if (imgSrc) {
-									const fullImgSrc = imgSrc.startsWith("http") ? imgSrc : `https://lexus.jp${imgSrc}`;
-									imagesToDownload.push(fullImgSrc);
-								}
+								mediaToDownload.push({ url: $(this).attr("src"), type: "image/jpeg" });
 							});
 							$("video").each(function () {
 								const videoSrc = $(this).attr("src");
 								if (videoSrc) {
-									const fullVideoSrc = videoSrc.startsWith("http") ? videoSrc : `https://lexus.jp${videoSrc}`;
-									mediaToDownload.push({ url: fullVideoSrc, type: "video/mp4" });
+									mediaToDownload.push({ url: $(this).attr("src"), type: "video/mp4" });
 								}
 							});
 							break;
@@ -97,25 +89,26 @@ const s3 = new AWS.S3();
 				}
 			}
 
-			const spinner = ora.default(`Downloading images from ${postUrl}`).start();
-			const totalImages = imagesToDownload.length;
+			const spinner = ora.default(`Downloading media from ${postUrl}`).start();
+			const totalImages = mediaToDownload.length;
 
 			for (let i = 0; i < totalImages; i++) {
-				const imageUrl = imagesToDownload[i];
-				const imageDirectory = createDirectories(path.dirname(imageUrl));
-				const downloaded = await uploadImageToS3(imageUrl, imageDirectory, postUrl, spinner);
+				const media = mediaToDownload[i];
+				const mediaDirectory = createDirectories(path.dirname(media.url));
+				const mediaPath = path.join(mediaDirectory, path.basename(media.url));
+				const downloaded = await uploadImageToS3(media.url, mediaPath, postUrl, spinner, media.type);
 				if (downloaded) {
 					successMessages++;
-					spinner.text = `Image downloaded (${successMessages}/${totalImages}) from ${chalk.blue(postUrl)}`;
+					spinner.text = `Media downloaded (${successMessages}/${totalImages}) from ${chalk.blue(media.url)} at ${chalk.blue(postUrl)}`;
 				}
 			}
 
-			spinner.succeed(`All images downloaded (${successMessages}/${totalImages}) from ${chalk.blue(postUrl)}`);
+			spinner.succeed(`All media downloaded (${successMessages}/${totalImages}) from ${chalk.blue(postUrl)}`);
 			totalSuccessMessages += successMessages;
 		}
 
-		console.log(chalk.green(`Total ${totalSuccessMessages} images downloaded successfully!`));
+		console.log(chalk.green(`Total ${totalSuccessMessages} media downloaded successfully!`));
 	} catch (error) {
-		console.error("Failed to download images", error);
+		console.error("Failed to download media", error);
 	}
 })();
