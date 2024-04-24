@@ -64,7 +64,7 @@ const fs = require("fs").promises;
 
 					const credit = await page.evaluate(() => {
 						const creditText = document.querySelector(".article__head .article__credit");
-						return creditText ? leadText.innerText : "";
+						return creditText ? creditText.innerText : "";
 					});
 
 					const contentDetails = await page.evaluate(() => {
