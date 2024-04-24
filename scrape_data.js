@@ -48,10 +48,8 @@ const fs = require("fs").promises;
 					});
 
 					const note = await page.evaluate(() => {
-						const note = Array.from(document.querySelectorAll(".article__foot .note_text")).map((profile) => ({
-							note
-						}));
-						return note;
+						const note = document.querySelector(".article__foot .note_text");
+						return note ? note.innerText : "";
 					});
 
 					const featureImage = await page.evaluate(() => {
@@ -61,7 +59,7 @@ const fs = require("fs").promises;
 
 					const title = await page.evaluate(() => {
 						const leadText = document.querySelector(".article__head .article__lead");
-						return leadText ? leadText.innerText.trim() : "No title";
+						return leadText ? leadText.innerText : "";
 					});
 
 					const contentDetails = await page.evaluate(() => {
