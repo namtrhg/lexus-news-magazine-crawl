@@ -47,6 +47,13 @@ const fs = require("fs").promises;
 						return profiles;
 					});
 
+					const note = await page.evaluate(() => {
+						const note = Array.from(document.querySelectorAll(".article__foot .note_text")).map((profile) => ({
+							note
+						}));
+						return note;
+					});
+
 					const featureImage = await page.evaluate(() => {
 						const metaElement = document.querySelector('meta[property="og:image"]');
 						return { url: metaElement?.getAttribute("content") || "Image not found", alt: "" };
@@ -152,6 +159,7 @@ const fs = require("fs").promises;
 						featureImage,
 						title,
 						content: contentDetails,
+						note,
 						profiles,
 					});
 					await page.close();
