@@ -62,6 +62,11 @@ const fs = require("fs").promises;
 						return leadText ? leadText.innerText : "";
 					});
 
+					const credit = await page.evaluate(() => {
+						const creditText = document.querySelector(".article__head .article__credit");
+						return creditText ? leadText.innerText : "";
+					});
+
 					const contentDetails = await page.evaluate(() => {
 						const articleBody = document.querySelector(".article__body");
 						if (!articleBody) return [];
@@ -156,6 +161,7 @@ const fs = require("fs").promises;
 						post_url: pageURL,
 						featureImage,
 						title,
+						credit,
 						content: contentDetails,
 						note,
 						profiles,
