@@ -9,3 +9,7 @@ node_modules/
 
 # Log files
 *.log
+
+redirect_mapping.json
+
+scraped_data.json
