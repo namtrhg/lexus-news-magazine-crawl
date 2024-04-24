@@ -4,6 +4,17 @@ const path = require("path");
 const cheerio = require("cheerio");
 const rawData = fs.readFileSync("scraped_data.json");
 const data = JSON.parse(rawData);
+const AWS = require("aws-sdk");
+require('dotenv').config();
+
+// Configure AWS with your access key, secret key, and region
+AWS.config.update({
+	accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+	secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+	region: process.env.AWS_REGION
+});
+
+const s3 = new AWS.S3();
 
 (async () => {
 	try {
@@ -11,15 +22,25 @@ const data = JSON.parse(rawData);
 		const { default: chalk } = await import("chalk");
 		let totalSuccessMessages = 0;
 
-		const downloadImage = async (imageUrl, filePath, postUrl, spinner) => {
+		const uploadImageToS3 = async (imageUrl, filePath, postUrl, spinner) => {
 			try {
 				const fullUrl = imageUrl.startsWith("https://lexus.jp") ? imageUrl : `https://lexus.jp${imageUrl}`;
 				const response = await fetch(fullUrl);
 				const buffer = await response.buffer();
-				fs.writeFileSync(filePath, buffer);
+
+				// Setting up S3 upload parameters
+				const params = {
+					Bucket: process.env.AWS_BUCKET,
+					Key: filePath,
+					Body: buffer,
+					ContentType: "image/jpeg", // You might want to adjust this based on the actual image MIME type
+				};
+
+				// Uploading files to the bucket
+				await s3.upload(params).promise();
 				return true;
 			} catch (error) {
-				spinner.fail(chalk.red(`✘ Error downloading image from ${postUrl}: ${error.message}`));
+				spinner.fail(`✘ Error uploading image to S3 from ${postUrl}: ${error.message}`);
 				return false;
 			}
 		};
@@ -27,10 +48,7 @@ const data = JSON.parse(rawData);
 		const createDirectories = (imageUrl) => {
 			// Remove the domain part if it exists in the imageUrl
 			const sanitizedImageUrl = imageUrl.replace("https://lexus.jp", "");
-			const directoryPath = path.join(__dirname, "images", sanitizedImageUrl.replace(/^\/|\/$/g, ""));
-			if (!fs.existsSync(directoryPath)) {
-				fs.mkdirSync(directoryPath, { recursive: true });
-			}
+			const directoryPath = path.join("images", sanitizedImageUrl.replace(/^\/|\/$/g, ""));
 			return directoryPath;
 		};
 
@@ -78,8 +96,7 @@ const data = JSON.parse(rawData);
 			for (let i = 0; i < totalImages; i++) {
 				const imageUrl = imagesToDownload[i];
 				const imageDirectory = createDirectories(path.dirname(imageUrl));
-				const imagePath = path.join(imageDirectory, path.basename(imageUrl));
-				const downloaded = await downloadImage(imageUrl, imagePath, postUrl, spinner);
+				const downloaded = await uploadImageToS3(imageUrl, imageDirectory, postUrl, spinner);
 				if (downloaded) {
 					successMessages++;
 					spinner.text = `Image downloaded (${successMessages}/${totalImages}) from ${chalk.blue(postUrl)}`;
