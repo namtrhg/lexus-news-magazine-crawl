@@ -5,13 +5,13 @@ const cheerio = require("cheerio");
 const rawData = fs.readFileSync("scraped_data.json");
 const data = JSON.parse(rawData);
 const AWS = require("aws-sdk");
-require('dotenv').config();
+require("dotenv").config();
 
 // Configure AWS with your access key, secret key, and region
 AWS.config.update({
 	accessKeyId: process.env.AWS_ACCESS_KEY_ID,
 	secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-	region: process.env.AWS_REGION
+	region: process.env.AWS_REGION,
 });
 
 const s3 = new AWS.S3();
@@ -83,6 +83,13 @@ const s3 = new AWS.S3();
 								if (imgSrc) {
 									const fullImgSrc = imgSrc.startsWith("http") ? imgSrc : `https://lexus.jp${imgSrc}`;
 									imagesToDownload.push(fullImgSrc);
+								}
+							});
+							$("video").each(function () {
+								const videoSrc = $(this).attr("src");
+								if (videoSrc) {
+									const fullVideoSrc = videoSrc.startsWith("http") ? videoSrc : `https://lexus.jp${videoSrc}`;
+									mediaToDownload.push({ url: fullVideoSrc, type: "video/mp4" });
 								}
 							});
 							break;

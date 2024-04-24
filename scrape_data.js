@@ -72,7 +72,7 @@ const fs = require("fs").promises;
 						if (!articleBody) return [];
 
 						const elements = articleBody.querySelectorAll(
-							".article__image, .article__text-area, .article__heading, .article__slider, .article__movie, .article__html, .article__moduleBanner",
+							".article__image, .article__text-area, .article__heading, .article__slider, .article__movie, .article__html, .article__moduleBanner, .profile",
 						);
 						const details = Array.from(elements).map((element) => {
 							if (element.classList.contains("article__image")) {
@@ -96,6 +96,11 @@ const fs = require("fs").promises;
 										content: element.innerHTML,
 									};
 								else return undefined;
+							} else if (element.classList.contains("profile")) {
+								return {
+									fieldId: "html",
+									content: element.innerHTML,
+								};
 							} else if (element.classList.contains("article__heading")) {
 								return {
 									fieldId: "heading",
