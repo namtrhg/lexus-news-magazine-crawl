@@ -145,6 +145,7 @@ const fs = require("fs").promises;
 							} else if (element.classList.contains("article__movie")) {
 								const video = element.querySelector(".article__iframe");
 								const thumbnailImage = element.querySelector(".article__movie-thumb img");
+								const caption = element.querySelector(".article__movie .article__caption")
 								return {
 									fieldId: "video",
 									videoUrl: video?.src,
@@ -153,6 +154,7 @@ const fs = require("fs").promises;
 										alt: thumbnailImage?.alt || "",
 									},
 									isHalf: element.classList.contains("size-half"),
+									caption
 								};
 							} else {
 								console.log("Found unrecognized element:", element);
