@@ -76,7 +76,7 @@ const s3 = new AWS.S3();
 						case "html":
 							const $ = cheerio.load(field.content);
 							$("img").each(function () {
-								mediaToDownload.push({ url: $(this).attr("src"), type: "image/jpeg" });
+								mediaToDownload.push({ url: $(this).attr("srcset") ?? $(this).attr("src"), type: "image/jpeg" });
 							});
 							$("video").each(function () {
 								const videoSrc = $(this).attr("src");
